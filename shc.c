@@ -3,6 +3,61 @@
 #include <stdio.h> //fprintf(), printf(), stderr, getchar(), perror()
 #include <string.h> //strcmp(), strtok()
 
+//Starting Shell Processes
+int sch_launch(char **args) {
+    pid_t pid, wpid;
+    int status;
+
+    pid = fork();
+    if(pid == 0){
+        //Child Process
+        if(execvp(args[0], args) == -1) {
+            perror("SCH");
+        }
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        //Error forking
+        perror("SCH");
+    } else {
+        //Parent Process
+        do {
+            wpid = waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+    return 1;
+}
+
+//Parsing The Line
+#define SHC_TOK_BUFSIZE 64
+#define SHC_TOK_DELIM " \t\r\n\a"
+char **shc_split_line(char *line){
+    int buffer_size = SHC_TOK_BUFSIZE, pos = 0;
+    char **tokens = malloc(buffer_size * sizeof(char*));
+    char *token;
+
+    if(!tokens) {
+        fprintf(stderr, "lsh: allocation error\n");
+        exit(EXIT_FAILURE);
+    }
+
+    token = strtok(line, SHC_TOK_DELIM);
+    while (token != NULL) {
+        tokens[pos] = token;
+        pos++;
+        if(pos >= buffer_size) {
+            buffer_size += SHC_TOK_BUFSIZE;
+            tokens = realloc(tokens, buffer_size * sizeof(char*));
+            if(!tokens) {
+                fprintf(stderr, "lsh: allocation error\n");
+                exit(EXIT_FAILURE);
+            }
+        }
+        token = strtok(NULL, SHC_TOK_DELIM);
+    }
+    tokens[pos] = NULL;
+    return tokens;
+}
+
 //Reading A Line
 char *sch_read_line(void) {
     char *line = NULL;
